@@ -1,5 +1,5 @@
 import cn from 'classnames';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Todo, TodoId } from '../../types/Todo';
 
 interface Props {
@@ -17,50 +17,83 @@ export const TodoItem: React.FC<Props> = React.memo(
 
     const [newTitle, setNewTitle] = useState(todo.title);
     const titleFieldRef = useRef<HTMLInputElement>(null);
+    const isSubmittingRef = useRef(false);
 
     useEffect(() => {
       if (isEditing && titleFieldRef.current) {
+        setNewTitle(title);
+        isSubmittingRef.current = false;
         titleFieldRef.current.focus();
       }
-    }, [isEditing]);
+    }, [isEditing, title]);
 
-    const toggleStatus = () => {
-      onChange({ ...todo, completed: !todo.completed });
-    };
-
-    const handleSubmit = async (e: React.FormEvent) => {
-      e.preventDefault();
-      const normalizedTitle = newTitle.trim();
-
-      if (normalizedTitle === todo.title) {
-        setEditingId(null);
-
+    const toggleStatus = useCallback(() => {
+      if (isLoading) {
         return;
       }
 
-      if (!normalizedTitle) {
-        const isSuccess = await onDelete(todo.id);
+      onChange({ ...todo, completed: !todo.completed });
+    }, [isLoading, onChange, todo]);
+
+    const processSubmit = useCallback(async () => {
+      if (isSubmittingRef.current) {
+        return;
+      }
+
+      isSubmittingRef.current = true;
+      try {
+        const normalizedTitle = newTitle.replace(/\s+/g, ' ').trim();
+
+        setNewTitle(normalizedTitle);
+
+        if (normalizedTitle === title) {
+          setEditingId(null);
+
+          return;
+        }
+
+        if (!normalizedTitle) {
+          const isSuccess = await onDelete(id);
+
+          if (isSuccess) {
+            setEditingId(null);
+          }
+
+          return;
+        }
+
+        const isSuccess = await onChange({ ...todo, title: normalizedTitle });
 
         if (isSuccess) {
           setEditingId(null);
         }
-
-        return;
+      } finally {
+        isSubmittingRef.current = false;
       }
+    }, [newTitle, title, onDelete, onChange, id, setEditingId, todo]);
 
-      const isSuccess = await onChange({ ...todo, title: normalizedTitle });
+    const handleSubmit = useCallback(
+      (e: React.FormEvent) => {
+        e.preventDefault();
+        processSubmit();
+      },
+      [processSubmit],
+    );
 
-      if (isSuccess) {
-        setEditingId(null);
-      }
-    };
+    const handleBlur = useCallback(() => {
+      processSubmit();
+    }, [processSubmit]);
 
-    const handleKeyUp = (e: React.KeyboardEvent<HTMLInputElement>) => {
-      if (e.key === 'Escape') {
-        setNewTitle(todo.title);
-        setEditingId(null);
-      }
-    };
+    const handleKeyUp = useCallback(
+      (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Escape') {
+          isSubmittingRef.current = true;
+          setNewTitle(title);
+          setEditingId(null);
+        }
+      },
+      [title, setEditingId],
+    );
 
     return (
       <li
@@ -93,7 +126,7 @@ export const TodoItem: React.FC<Props> = React.memo(
               value={newTitle}
               onChange={event => setNewTitle(event.target.value)}
               onKeyUp={handleKeyUp}
-              onBlur={handleSubmit}
+              onBlur={handleBlur}
             />
           </form>
         ) : (

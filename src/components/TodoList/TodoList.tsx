@@ -12,6 +12,9 @@ interface Props {
   setEditingId: (id: TodoId | null) => void;
 }
 
+const noopAsync = async () => false;
+const noopVoid = () => {};
+
 export const TodoList: React.FC<Props> = React.memo(
   ({
     todos,
@@ -43,9 +46,9 @@ export const TodoList: React.FC<Props> = React.memo(
             todo={skeletonTodo}
             isLoading={true}
             isEditing={false}
-            onDelete={async () => false}
-            onChange={async () => false}
-            setEditingId={() => {}}
+            onDelete={noopAsync}
+            onChange={noopAsync}
+            setEditingId={noopVoid}
           />
         )}
       </ul>

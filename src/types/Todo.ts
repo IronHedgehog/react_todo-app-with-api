@@ -8,5 +8,4 @@ export interface Todo {
 }
 
 export type NewTodo = Omit<Todo, 'id'>;
-// export type TodoId = Pick<Todo, 'id'>;
 export type TodoId = Todo['id'];
